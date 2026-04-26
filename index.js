@@ -3,6 +3,7 @@ const { PrismaClient } = require("@prisma/client");
 const cors = require("cors");
 const verifyToken = require("./middleware/auth");
 const jwt = require("jsonwebtoken");
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 const app = express();
@@ -175,26 +176,53 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/admin/login", (req, res) => {
+app.post("/api/admin/login", async (req, res) => {
+  // Cambiamos 'user' por 'email' para que coincida con la tabla
   const { user, pass } = req.body;
 
-  // Validamos contra las variables de entorno
-  if (user === process.env.ADMIN_USER && pass === process.env.ADMIN_PASS) {
-    // Creamos un Token que expire en 8 horas
-    const token = jwt.sign({ role: "admin" }, process.env.JWT_SECRET, {
-      expiresIn: "8h",
+  try {
+    // 1. Buscamos al administrador por su email (o nombre de usuario)
+    const admin = await prisma.admin.findUnique({
+      where: { email: user },
     });
 
-    return res.json({
-      success: true,
-      token: token,
+    // 2. Si no existe el admin, cortamos de inmediato
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Usuario o contraseña incorrectos",
+      });
+    }
+
+    // 3. Comparamos la contraseña enviada con el hash guardado en la DB
+    const validPassword = await bcrypt.compare(pass, admin.password);
+
+    if (validPassword) {
+      // 4. Creamos el Token incluyendo el ID o Email del admin
+      const token = jwt.sign(
+        { id: admin.id, role: "admin" },
+        process.env.JWT_SECRET,
+        { expiresIn: "8h" },
+      );
+
+      return res.json({
+        success: true,
+        token: token,
+      });
+    }
+
+    // Si la contraseña no coincide
+    return res.status(401).json({
+      success: false,
+      message: "Usuario o contraseña incorrectos",
+    });
+  } catch (error) {
+    console.error("Error en login:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
     });
   }
-
-  return res.status(401).json({
-    success: false,
-    message: "Usuario o contraseña incorrectos",
-  });
 });
 
 // 1. LOGIN: Ingreso por RUT y carga de borrador
