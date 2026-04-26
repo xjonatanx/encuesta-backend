@@ -164,13 +164,11 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
         count: d.count,
       })), // M12
       totalEncuestas: total,
-      ultimas: encuestas
-        .slice(0, 8)
-        .map((e) => ({
-          rut: e.user?.rut,
-          rec: e.recomendacion,
-          turno: e.turno,
-        })),
+      ultimas: encuestas.slice(0, 8).map((e) => ({
+        rut: e.user?.rut,
+        rec: e.recomendacion,
+        turno: e.turno,
+      })),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -291,4 +289,4 @@ app.patch("/api/survey/save", verifyToken, async (req, res) => {
   }
 });
 
-app.listen(3001, () => console.log("Backend corriendo en el puerto 3001"));
+app.listen(3002, () => console.log("Backend corriendo en el puerto 3002"));
