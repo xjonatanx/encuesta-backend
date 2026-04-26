@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id     Int     @id @default(autoincrement())
+  rut    String  @unique
+  survey Survey?
+}
+
+model Survey {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id])
+  status          String   @default("DRAFT")
+
+  // Datos de encabezado
+  cargo           String?
+  jefeDirecto     String?
+  supervisor      String?  // <--- AGREGA ESTA LÍNEA AQUÍ
+  turno           String?
+
+  // Secciones en formato JSON
+  respuestas      Json?
+
+  // Agrega también emociones si no lo tienes para que no se pierdan
+  emociones       Json?    // <--- AGREGA ESTA SI VAS A GUARDAR LAS EMOCIONES
+
+  recomendacion   Int?
+  mejoras         String?
+  destacados      String?
+  lastStep        Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Survey" ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "emociones" JSONB,
+ADD COLUMN     "lastStep" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "supervisor" TEXT;
