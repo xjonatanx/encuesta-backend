@@ -41,6 +41,7 @@ app.get("/api/admin/alertas-full", async (req, res) => {
       limit: limit,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
