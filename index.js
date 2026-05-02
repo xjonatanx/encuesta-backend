@@ -17,27 +17,27 @@ app.get("/api/admin/alertas-full", async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // 1. Obtener el total de alertas (recomendacion <= 5) usando Prisma
-    const total = await prisma.survey.count({
-      where: {
-        recomendacion: {
-          lte: 5, // lte significa "Less Than or Equal" (<=)
-        },
+    // Definimos la condición de filtrado una sola vez para evitar errores
+    const whereCondition = {
+      status: "COMPLETED", // CRÍTICO: Solo encuestas finalizadas
+      recomendacion: {
+        lte: 5, // Less Than or Equal (<=)
       },
+    };
+
+    // 1. Obtener el total de alertas filtradas
+    const total = await prisma.survey.count({
+      where: whereCondition,
     });
 
     // 2. Obtener los datos paginados
     const rows = await prisma.survey.findMany({
-      where: {
-        recomendacion: {
-          lte: 5,
-        },
-      },
+      where: whereCondition,
       orderBy: {
-        createdAt: "desc", // O usa 'fecha' si tienes ese campo específico
+        createdAt: "desc",
       },
-      take: limit, // Esto es el LIMIT
-      skip: skip, // Esto es el OFFSET
+      take: limit,
+      skip: skip,
       include: {
         user: {
           select: { rut: true },
@@ -45,8 +45,7 @@ app.get("/api/admin/alertas-full", async (req, res) => {
       },
     });
 
-    // 3. Formatear la respuesta para que el Front la entienda
-    // (Aplanamos el objeto para que 'rut' esté al mismo nivel que 'rec')
+    // 3. Formatear la respuesta
     const formattedData = rows.map((e) => ({
       rut: e.user?.rut,
       rec: e.recomendacion,
@@ -68,11 +67,15 @@ app.get("/api/admin/alertas-full", async (req, res) => {
 app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
   try {
     const encuestas = await prisma.survey.findMany({
+      where: {
+        status: "COMPLETED",
+      },
       orderBy: { createdAt: "desc" },
       include: { user: { select: { rut: true } } },
     });
 
-    if (encuestas.length === 0) return res.json({ error: "No hay datos" });
+    if (encuestas.length === 0)
+      return res.json({ error: "No hay datos finalizados aún" });
 
     const total = encuestas.length;
     const dimensiones = [
