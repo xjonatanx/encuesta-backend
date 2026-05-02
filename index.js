@@ -11,6 +11,40 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/api/admin/alertas-full", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // 1. Obtener el total de alertas críticas para la paginación
+    const [totalRows] = await db.query(
+      "SELECT COUNT(*) as total FROM encuestas WHERE recomendacion <= 5",
+    );
+    const total = totalRows[0].total;
+
+    // 2. Obtener los datos paginados
+    const [rows] = await db.query(
+      `SELECT rut, recomendacion as rec, turno
+             FROM encuestas
+             WHERE recomendacion <= 5
+             ORDER BY fecha DESC
+             LIMIT ? OFFSET ?`,
+      [limit, offset],
+    );
+
+    // 3. Retornar la estructura que espera tu Front
+    res.json({
+      data: rows,
+      total: total,
+      page: page,
+      limit: limit,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+});
+
 app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
   try {
     const encuestas = await prisma.survey.findMany({
@@ -95,9 +129,12 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
         });
       }
 
-      // Métrica 7: Jefes
+      // Métrica 7: Cálculo basado en Jefe Directo
       if (e.jefeDirecto) {
-        if (!jefes[e.jefeDirecto]) jefes[e.jefeDirecto] = { suma: 0, count: 0 };
+        if (!jefes[e.jefeDirecto]) {
+          jefes[e.jefeDirecto] = { suma: 0, count: 0 };
+        }
+        // Se usa la recomendación (NPS) como nota para el Jefe Directo
         jefes[e.jefeDirecto].suma += rec;
         jefes[e.jefeDirecto].count++;
       }
@@ -142,9 +179,13 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
       })), // M5
       tasaEstres: ((conteoEstres / total) * 100).toFixed(1), // M6
       rankingJefes: Object.entries(jefes)
-        .map(([n, d]) => ({ name: n, avg: (d.suma / d.count).toFixed(1) }))
+        .map(([name, d]) => ({
+          name: name,
+          avg: (d.suma / d.count).toFixed(1),
+        }))
         .sort((a, b) => b.avg - a.avg), // M7
       alertasCount: alertas.length, // M8
+      alertasDetalle: alertas,
       prioridades: dimensiones
         .map((d) => ({
           area: d.toUpperCase(),
