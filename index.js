@@ -15,33 +15,52 @@ app.get("/api/admin/alertas-full", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-    // 1. Obtener el total de alertas críticas para la paginación
-    const [totalRows] = await db.query(
-      "SELECT COUNT(*) as total FROM encuestas WHERE recomendacion <= 5",
-    );
-    const total = totalRows[0].total;
+    // 1. Obtener el total de alertas (recomendacion <= 5) usando Prisma
+    const total = await prisma.survey.count({
+      where: {
+        recomendacion: {
+          lte: 5, // lte significa "Less Than or Equal" (<=)
+        },
+      },
+    });
 
     // 2. Obtener los datos paginados
-    const [rows] = await db.query(
-      `SELECT rut, recomendacion as rec, turno
-             FROM encuestas
-             WHERE recomendacion <= 5
-             ORDER BY fecha DESC
-             LIMIT ? OFFSET ?`,
-      [limit, offset],
-    );
+    const rows = await prisma.survey.findMany({
+      where: {
+        recomendacion: {
+          lte: 5,
+        },
+      },
+      orderBy: {
+        createdAt: "desc", // O usa 'fecha' si tienes ese campo específico
+      },
+      take: limit, // Esto es el LIMIT
+      skip: skip, // Esto es el OFFSET
+      include: {
+        user: {
+          select: { rut: true },
+        },
+      },
+    });
 
-    // 3. Retornar la estructura que espera tu Front
+    // 3. Formatear la respuesta para que el Front la entienda
+    // (Aplanamos el objeto para que 'rut' esté al mismo nivel que 'rec')
+    const formattedData = rows.map((e) => ({
+      rut: e.user?.rut,
+      rec: e.recomendacion,
+      turno: e.turno,
+    }));
+
     res.json({
-      data: rows,
+      data: formattedData,
       total: total,
       page: page,
       limit: limit,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error en alertas-full:", error);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
