@@ -13,14 +13,18 @@ app.use(express.json());
 
 app.get("/api/admin/detalle-emocion", verifyToken, async (req, res) => {
   try {
-    const { turno, emocion } = req.query;
+    // Recibimos page (página actual) y limit (registros por página)
+    const { turno, emocion, page = 1, limit = 10 } = req.query;
+
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const skip = (pageInt - 1) * limitInt;
 
     if (!turno || !emocion) {
-      return res
-        .status(400)
-        .json({ error: "Faltan parámetros: turno y emocion" });
+      return res.status(400).json({ error: "Faltan parámetros" });
     }
 
+    // 1. Buscamos todas las encuestas completadas de ese turno
     const encuestas = await prisma.survey.findMany({
       where: {
         status: "COMPLETED",
@@ -32,20 +36,32 @@ app.get("/api/admin/detalle-emocion", verifyToken, async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // Filtramos manualmente las encuestas donde la emoción específica sea 'true'
+    // 2. Filtramos en memoria las que tienen la emoción marcada como true
     const filtrados = encuestas.filter((e) => {
       return e.emociones && e.emociones[emocion] === true;
     });
 
-    // Formateamos para la tabla del frontend
-    const data = filtrados.map((e) => ({
+    // 3. Calculamos el total antes de recortar el array
+    const total = filtrados.length;
+
+    // 4. Aplicamos el recorte (paginación) manualmente al array
+    const paginados = filtrados.slice(skip, skip + limitInt);
+
+    // 5. Formateamos la respuesta
+    const data = paginados.map((e) => ({
       rut: e.user?.rut || "N/A",
-      nombre: e.user?.nombre || "Anónimo", // Ajusta según tus campos
+      nombre: e.user?.nombre || "Anónimo",
       rec: e.recomendacion,
       fecha: new Date(e.createdAt).toLocaleDateString(),
     }));
 
-    res.json({ data });
+    // Enviamos la data junto con los metadatos de paginación
+    res.json({
+      data,
+      total,
+      page: pageInt,
+      limit: limitInt,
+    });
   } catch (error) {
     console.error("Error en detalle-emocion:", error);
     res.status(500).json({ error: "Error interno del servidor" });
