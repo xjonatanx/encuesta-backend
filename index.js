@@ -11,6 +11,47 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/api/admin/detalle-emocion", verifyToken, async (req, res) => {
+  try {
+    const { turno, emocion } = req.query;
+
+    if (!turno || !emocion) {
+      return res
+        .status(400)
+        .json({ error: "Faltan parámetros: turno y emocion" });
+    }
+
+    const encuestas = await prisma.survey.findMany({
+      where: {
+        status: "COMPLETED",
+        turno: turno,
+      },
+      include: {
+        user: { select: { rut: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Filtramos manualmente las encuestas donde la emoción específica sea 'true'
+    const filtrados = encuestas.filter((e) => {
+      return e.emociones && e.emociones[emocion] === true;
+    });
+
+    // Formateamos para la tabla del frontend
+    const data = filtrados.map((e) => ({
+      rut: e.user?.rut || "N/A",
+      nombre: e.user?.nombre || "Anónimo", // Ajusta según tus campos
+      rec: e.recomendacion,
+      fecha: new Date(e.createdAt).toLocaleDateString(),
+    }));
+
+    res.json({ data });
+  } catch (error) {
+    console.error("Error en detalle-emocion:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 app.get("/api/admin/alertas-full", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
