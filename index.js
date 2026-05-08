@@ -157,12 +157,17 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
       jefatura: 0,
       condiciones: 0,
     };
+
+    // --- TURNOS ACTUALIZADOS ---
     const turnosData = {
       "G1 DIA": { suma: 0, count: 0, emociones: {} },
       "G2 NOCHE": { suma: 0, count: 0, emociones: {} },
       "G3 DIA": { suma: 0, count: 0, emociones: {} },
       "G4 NOCHE": { suma: 0, count: 0, emociones: {} },
+      "TURNO 5 X 2": { suma: 0, count: 0, emociones: {} }, // Nuevo
+      "TURNO 4 X 3": { suma: 0, count: 0, emociones: {} }, // Nuevo
     };
+
     const distribucion = {
       "Crítico (1-3)": 0,
       "Bajo (4-5)": 0,
@@ -196,7 +201,7 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
         }
       });
 
-      // Métrica 5 y 6: Emociones y Estrés
+      // Métrica 5 y 6: Emociones y Estrés (Funciona para cualquier turno en turnosData)
       if (turnosData[e.turno]) {
         turnosData[e.turno].suma += rec;
         turnosData[e.turno].count++;
@@ -209,12 +214,9 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
         });
       }
 
-      // Métrica 7: Cálculo basado en Jefe Directo
+      // Métrica 7: Jefe Directo
       if (e.jefeDirecto) {
-        if (!jefes[e.jefeDirecto]) {
-          jefes[e.jefeDirecto] = { suma: 0, count: 0 };
-        }
-        // Se usa la recomendación (NPS) como nota para el Jefe Directo
+        if (!jefes[e.jefeDirecto]) jefes[e.jefeDirecto] = { suma: 0, count: 0 };
         jefes[e.jefeDirecto].suma += rec;
         jefes[e.jefeDirecto].count++;
       }
@@ -230,6 +232,8 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
       }
     });
 
+    // Cálculo de promedios para Métrica 4 (Brecha Día vs Noche)
+    // Nota: Los nuevos turnos no se incluyen aquí a menos que definas si son día o noche.
     const promDia =
       (turnosData["G1 DIA"].suma + turnosData["G3 DIA"].suma) /
       (turnosData["G1 DIA"].count + turnosData["G3 DIA"].count || 1);
@@ -240,31 +244,35 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
     res.json({
       nps: (
         encuestas.reduce((a, b) => a + (b.recomendacion || 0), 0) / total
-      ).toFixed(1), // M1
+      ).toFixed(1),
       distribucion: Object.entries(distribucion).map(([label, value]) => ({
         label,
         value,
-      })), // M2
+      })),
       radar: dimensiones.map((d) =>
         radarCounts[d] > 0 ? (resumenRadar[d] / radarCounts[d]).toFixed(2) : 0,
-      ), // M3
+      ),
       brecha: {
         dia: promDia.toFixed(1),
         noche: promNoche.toFixed(1),
         diff: Math.abs(promDia - promNoche).toFixed(1),
-      }, // M4
+      },
       statsTurnos: Object.keys(turnosData).map((t) => ({
         nombre: t,
         emociones: turnosData[t].emociones,
-      })), // M5
-      tasaEstres: ((conteoEstres / total) * 100).toFixed(1), // M6
+        promedio:
+          turnosData[t].count > 0
+            ? (turnosData[t].suma / turnosData[t].count).toFixed(1)
+            : 0,
+      })),
+      tasaEstres: ((conteoEstres / total) * 100).toFixed(1),
       rankingJefes: Object.entries(jefes)
         .map(([name, d]) => ({
           name: name,
           avg: (d.suma / d.count).toFixed(1),
         }))
-        .sort((a, b) => b.avg - a.avg), // M7
-      alertasCount: alertas.length, // M8
+        .sort((a, b) => b.avg - a.avg),
+      alertasCount: alertas.length,
       alertasDetalle: alertas,
       prioridades: dimensiones
         .map((d) => ({
@@ -275,16 +283,16 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
               : 0,
         }))
         .sort((a, b) => a.avg - b.avg)
-        .slice(0, 3), // M9
+        .slice(0, 3),
       fidelizacion:
         radarCounts["empresa"] > 0
           ? ((resumenRadar["empresa"] / radarCounts["empresa"]) * 20).toFixed(1)
-          : 0, // M10
-      seguridad: (sumaSeguridad / (radarCounts["condiciones"] || 1)).toFixed(1), // M11
+          : 0,
+      seguridad: (sumaSeguridad / (radarCounts["condiciones"] || 1)).toFixed(1),
       cobertura: Object.entries(turnosData).map(([name, d]) => ({
         name,
         count: d.count,
-      })), // M12
+      })),
       totalEncuestas: total,
       ultimas: encuestas.slice(0, 8).map((e) => ({
         rut: e.user?.rut,
