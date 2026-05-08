@@ -76,10 +76,12 @@ app.get("/api/admin/alertas-full", async (req, res) => {
 
     // Definimos la condición de filtrado una sola vez para evitar errores
     const whereCondition = {
-      status: "COMPLETED", // CRÍTICO: Solo encuestas finalizadas
-      recomendacion: {
-        lte: 5, // Less Than or Equal (<=)
-      },
+      status: "COMPLETED",
+      recomendacion: { lte: 4 }, // Bajamos de 5 a 4 para coincidir
+      OR: [
+        { emociones: { path: ["Estrés"], equals: true } },
+        { emociones: { path: ["Frustración"], equals: true } },
+      ],
     };
 
     // 1. Obtener el total de alertas filtradas
