@@ -244,36 +244,34 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
       (turnosData["G2 NOCHE"].count + turnosData["G4 NOCHE"].count || 1);
 
     // GRAFICOS GLOBALES
-    const dimensiones = [
-      "empresa",
-      "jefatura",
-      "puesto",
-      "equipo",
-      "condiciones",
-    ];
-
-    // Calculamos los puntos totales por dimensión (Suma de todas las respuestas / total encuestas)
+    // Calculamos los puntos totales por dimensión para las barras de la guía
     const puntosPorDimension = dimensiones.map((d) => {
       const sumaTotalRespuestasDim = encuestas.reduce((acc, e) => {
+        // Sumamos los valores de las respuestas de esta dimensión específica
         const valores = Object.values(e.respuestas?.[d] || {});
         return acc + valores.reduce((a, b) => a + b, 0);
       }, 0);
 
+      // Retornamos el promedio de puntos (Escala 1 a 55)
       return {
         label: d.toUpperCase(),
-        puntos: total > 0 ? (sumaTotalRespuestasDim / total).toFixed(1) : 0,
+        puntos:
+          total > 0
+            ? parseFloat((sumaTotalRespuestasDim / total).toFixed(1))
+            : 0,
       };
     });
 
-    // El Puntaje Global es la suma de los puntos de las 5 dimensiones
-    const puntajeGlobal = puntosPorDimension
-      .reduce((acc, curr) => acc + parseFloat(curr.puntos), 0)
-      .toFixed(1);
+    // El Puntaje Global es la suma de los puntos de las 5 dimensiones (Máx 275)
+    const puntajeGlobal = puntosPorDimension.reduce(
+      (acc, curr) => acc + curr.puntos,
+      0,
+    );
     //
 
     res.json({
-      secciones: puntosPorDimension, // Esto alimenta las 5 barras pequeñas
-      puntajeGlobal: parseFloat(puntajeGlobal), // Esto alimenta la barra grande (máx 275)
+      secciones: puntosPorDimension, // Para las 5 barras pequeñas
+      puntajeGlobal: parseFloat(puntajeGlobal.toFixed(1)), // Para la barra grande
       nps: (
         encuestas.reduce((a, b) => a + (b.recomendacion || 0), 0) / total
       ).toFixed(1),
