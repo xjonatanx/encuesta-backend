@@ -11,6 +11,35 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/api/admin/survey-by-rut/:rut", verifyToken, async (req, res) => {
+  const { rut } = req.params;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { rut: rut },
+      include: {
+        survey: true, // Incluimos la encuesta asociada
+      },
+    });
+
+    if (!user || !user.survey) {
+      return res
+        .status(404)
+        .json({ message: "No se encontró encuesta para este RUT" });
+    }
+
+    // Devolvemos el usuario y su encuesta
+    res.json({
+      nombre: user.nombre || "Trabajador",
+      rut: user.rut,
+      survey: user.survey,
+    });
+  } catch (error) {
+    console.error("Error al buscar por RUT:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 app.get("/api/admin/detalle-emocion", verifyToken, async (req, res) => {
   try {
     // Recibimos page (página actual) y limit (registros por página)
