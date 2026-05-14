@@ -180,7 +180,13 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
 
     // 3. GENERAR EL PDF CON PUPPETEER
     const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      // Usa la ruta del sistema definida en el Dockerfile o nula para local
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage", // Importante para que no se crashee en Docker
+      ],
     });
     const page = await browser.newPage();
 
