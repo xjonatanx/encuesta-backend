@@ -10,7 +10,7 @@ async function main() {
 
   // 2. Insertar o actualizar el administrador
   const admin = await prisma.admin.upsert({
-    where: { email: "natalia@pybingenieria.cl" }, // Cambia esto al email que desees
+    where: { email: "admin@pybingenieria.cl" }, // Cambia esto al email que desees
     update: {}, // Si ya existe, no hace nada
     create: {
       email: "natalia@pybingenieria.cl",
