@@ -30,7 +30,7 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
 
     const { survey } = user;
 
-    // 2. Definir el HTML (Aquí inyectamos el CSS "Blindado" que hicimos)
+    // 2. Definir el HTML
     const htmlContent = `
     <!DOCTYPE html>
     <html lang="es">
@@ -38,34 +38,34 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
         <meta charset="UTF-8">
         <style>
             @page { size: A4 landscape; margin: 10mm; }
-            body { font-family: Arial, sans-serif; font-size: 12px; color: black; margin: 0; padding: 0; }
+            body { font-family: Arial, sans-serif; font-size: 11px; color: black; margin: 0; padding: 0; }
             table { width: 100%; border-collapse: collapse; table-layout: fixed; }
             .uppercase { text-transform: uppercase; }
             .bold { font-weight: bold; }
             .bg-gris { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
 
             /* Header ISO */
-            .tabla-iso { border: 1.5pt solid black; margin-bottom: 20px; }
-            .tabla-iso td { border: 1pt solid black; padding: 8px; }
+            .tabla-iso { border: 1.5pt solid black; margin-bottom: 0; }
+            .tabla-iso td { border: 1pt solid black; padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
             /* Secciones */
             .seccion-titulo {
                 border-bottom: 4pt solid #1a4479;
                 color: #1a4479;
-                font-size: 20px;
+                font-size: 18px;
                 font-weight: bold;
-                padding: 10px 0;
-                margin-top: 30px;
+                padding: 8px 0;
+                margin-top: 25px;
                 width: 100%;
             }
 
-            .pregunta-row { padding: 15px 0; border-bottom: 0.5pt solid #eee; page-break-inside: avoid; }
+            .pregunta-row { padding: 12px 0; border-bottom: 0.5pt solid #eee; page-break-inside: avoid; }
             .caja-voto {
                 display: inline-block;
                 border: 1.5pt solid #1a4479;
-                padding: 5px 15px;
-                margin-right: 10px;
-                margin-top: 10px;
+                padding: 4px 12px;
+                margin-right: 8px;
+                margin-top: 8px;
                 border-radius: 4px;
                 font-weight: bold;
                 color: #1a4479;
@@ -74,18 +74,18 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
 
             /* Emociones y Footer */
             .tabla-final { border: 1.5pt solid black; width: 100%; margin-top: 20px; }
-            .tabla-final td, .tabla-final th { border: 1pt solid black; padding: 18px; }
+            .tabla-final td, .tabla-final th { border: 1pt solid black; padding: 12px; }
         </style>
     </head>
     <body>
         <table class="tabla-iso">
             <tr>
                 <td rowspan="2" style="width: 15%; text-align: center;">
-                    <img src="https://pybingenieriachile.cl/encuestas/images/logo_pb.png" style="max-height: 50px;">
+                    <img src="https://pybingenieriachile.cl/encuestas/images/logo_pb.png" style="max-height: 45px;">
                 </td>
                 <td style="width: 55%; text-align: center;" class="bg-gris">
                     <div class="bold">PROCEDIMIENTOS RR.HH.</div>
-                    <div style="font-size: 10px;">Sistema de Gestión de la Calidad ISO 9001:2015</div>
+                    <div style="font-size: 9px;">Sistema de Gestión de la Calidad ISO 9001:2015</div>
                 </td>
                 <td style="width: 30%; font-size: 9px;">
                     <strong>CÓDIGO:</strong> —<br>
@@ -96,16 +96,17 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
             <tr>
                 <td colspan="2" style="text-align: center;" class="bg-gris">
                     <div class="bold uppercase">Encuesta Clima Laboral</div>
-                    <div style="font-size: 10px;">EXPEDIENTE DE AUDITORÍA INTERNA</div>
+                    <div style="font-size: 9px;">EXPEDIENTE DE AUDITORÍA INTERNA</div>
                 </td>
             </tr>
         </table>
 
         <table class="tabla-iso" style="border-top: none;">
             <tr>
-                <td><strong>RUT:</strong> ${user.rut}</td>
-                <td><strong>CARGO:</strong> ${survey.cargo || "N/A"}</td>
-                <td><strong>TURNO:</strong> ${survey.turno || "N/A"}</td>
+                <td style="width: 20%;"><strong>RUT:</strong> ${user.rut}</td>
+                <td style="width: 25%;"><strong>CARGO:</strong> ${survey.cargo || "N/A"}</td>
+                <td style="width: 35%;"><strong>JEFE DIRECTO:</strong> ${survey.jefeDirecto || "N/A"}</td>
+                <td style="width: 20%;"><strong>TURNO:</strong> ${survey.turno || "N/A"}</td>
             </tr>
         </table>
 
@@ -157,17 +158,17 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
             </tbody>
         </table>
 
-        <div style="margin-top: 40px;">
+        <div style="margin-top: 30px;">
             <table class="tabla-final">
                 <tr class="bg-gris">
                     <td colspan="2"><strong>RECOMENDACIÓN EMPRESA (1-7):</strong> ${survey.recomendacion || "—"}</td>
                 </tr>
                 <tr>
-                    <td style="vertical-align: top;">
+                    <td style="vertical-align: top; width: 50%;">
                         <div class="bold" style="color:#1a4479">DESTACA:</div>
                         <div>${survey.destacados || "Sin comentarios."}</div>
                     </td>
-                    <td style="vertical-align: top;">
+                    <td style="vertical-align: top; width: 50%;">
                         <div class="bold" style="color:#1a4479">PUNTOS A MEJORAR:</div>
                         <div>${survey.mejoras || "Sin comentarios."}</div>
                     </td>
@@ -180,20 +181,16 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
 
     // 3. GENERAR EL PDF CON PUPPETEER
     const browser = await puppeteer.launch({
-      // Usa la ruta del sistema definida en el Dockerfile o nula para local
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage", // Importante para que no se crashee en Docker
+        "--disable-dev-shm-usage",
       ],
     });
     const page = await browser.newPage();
-
-    // Inyectar HTML
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
-    // Crear Buffer del PDF
     const pdfBuffer = await page.pdf({
       format: "A4",
       landscape: true,
@@ -203,7 +200,6 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
 
     await browser.close();
 
-    // 4. Enviar PDF al cliente
     res.contentType("application/pdf");
     res.setHeader(
       "Content-Disposition",
