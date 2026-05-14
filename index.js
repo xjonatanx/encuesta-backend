@@ -16,168 +16,188 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
   const { rut } = req.params;
 
   try {
-    // 1. Obtener datos de la DB (Igual que tu ruta de búsqueda)
+    // 1. Obtener los datos desde Prisma
     const user = await prisma.user.findUnique({
       where: { rut: rut },
       include: { survey: true },
     });
 
     if (!user || !user.survey) {
-      return res.status(404).json({ message: "No se encontró la encuesta" });
+      return res
+        .status(404)
+        .json({ message: "No se encontró encuesta para este RUT" });
     }
 
-    const encuesta = user.survey;
-    const fechaEmision = new Date(encuesta.createdAt).toLocaleDateString(
-      "es-CL",
-    );
+    const { survey } = user;
 
-    // 2. Definir el HTML y CSS (Adaptado para Puppeteer)
+    // 2. Definir el HTML (Aquí inyectamos el CSS "Blindado" que hicimos)
     const htmlContent = `
     <!DOCTYPE html>
-    <html>
+    <html lang="es">
     <head>
-      <style>
-        @page { size: A4 landscape; margin: 10mm; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: black; margin: 0; padding: 0; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .bold { font-weight: bold; }
-        .uppercase { text-transform: uppercase; }
-        .bg-gris { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
+        <meta charset="UTF-8">
+        <style>
+            @page { size: A4 landscape; margin: 10mm; }
+            body { font-family: Arial, sans-serif; font-size: 12px; color: black; margin: 0; padding: 0; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            .uppercase { text-transform: uppercase; }
+            .bold { font-weight: bold; }
+            .bg-gris { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
 
-        /* ISO Header */
-        .tabla-iso { border: 1.5pt solid black; margin-bottom: 20px; }
-        .tabla-iso td { border: 1pt solid black; padding: 8px; vertical-align: middle; }
+            /* Header ISO */
+            .tabla-iso { border: 1.5pt solid black; margin-bottom: 20px; }
+            .tabla-iso td { border: 1pt solid black; padding: 8px; }
 
-        /* Secciones */
-        .titulo-seccion {
-          border-bottom: 3pt solid #1a4479;
-          color: #1a4479;
-          font-size: 18px;
-          font-weight: bold;
-          padding: 10px 0;
-          margin-top: 30px;
-          width: 100%;
-        }
+            /* Secciones */
+            .seccion-titulo {
+                border-bottom: 4pt solid #1a4479;
+                color: #1a4479;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 10px 0;
+                margin-top: 30px;
+                width: 100%;
+            }
 
-        /* Preguntas */
-        .bloque-pregunta { padding: 15px 0; border-bottom: 0.5pt solid #eee; page-break-inside: avoid; }
-        .caja-voto {
-          display: inline-block;
-          border: 1.5pt solid #1a4479;
-          padding: 5px 15px;
-          margin-right: 10px;
-          border-radius: 4px;
-          font-weight: bold;
-          color: #1a4479;
-        }
-        .activa { background-color: #1a4479 !important; color: white !important; -webkit-print-color-adjust: exact; }
+            .pregunta-row { padding: 15px 0; border-bottom: 0.5pt solid #eee; page-break-inside: avoid; }
+            .caja-voto {
+                display: inline-block;
+                border: 1.5pt solid #1a4479;
+                padding: 5px 15px;
+                margin-right: 10px;
+                margin-top: 10px;
+                border-radius: 4px;
+                font-weight: bold;
+                color: #1a4479;
+            }
+            .activa { background-color: #1a4479 !important; color: white !important; -webkit-print-color-adjust: exact; }
 
-        /* Emociones */
-        .tabla-emociones { border: 1.5pt solid black; margin-top: 20px; }
-        .tabla-emociones td, .tabla-emociones th { border: 1pt solid black; padding: 15px; }
-
-        .pildora { background: #d4edda !important; color: #155724 !important; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-      </style>
+            /* Emociones y Footer */
+            .tabla-final { border: 1.5pt solid black; width: 100%; margin-top: 20px; }
+            .tabla-final td, .tabla-final th { border: 1pt solid black; padding: 18px; }
+        </style>
     </head>
     <body>
-      <table class="tabla-iso">
-        <tr>
-          <td rowspan="2" style="width: 15%; text-align: center;">
-            <img src="https://pybingenieriachile.cl/encuestas/images/logo_pb.png" style="max-height: 50px;" />
-          </td>
-          <td style="width: 55%; text-align: center;" class="bg-gris">
-            <div class="bold">PROCEDIMIENTOS RR.HH.</div>
-            <div style="font-size: 10px;">Sistema de Gestión de la Calidad ISO 9001:2015</div>
-          </td>
-          <td style="width: 30%; font-size: 9px;">
-            <strong>CÓDIGO:</strong> —<br>
-            <strong>REVISIÓN:</strong> 0<br>
-            <strong>EMISIÓN:</strong> ${fechaEmision}
-          </td>
-        </tr>
-        <tr>
-          <td colspan="2" style="text-align: center;" class="bg-gris">
-            <div class="bold uppercase">Encuesta Clima Laboral</div>
-            <div style="font-size: 10px;">EXPEDIENTE DE AUDITORÍA INTERNA</div>
-          </td>
-        </tr>
-      </table>
+        <table class="tabla-iso">
+            <tr>
+                <td rowspan="2" style="width: 15%; text-align: center;">
+                    <img src="https://pybingenieriachile.cl/encuestas/images/logo_pb.png" style="max-height: 50px;">
+                </td>
+                <td style="width: 55%; text-align: center;" class="bg-gris">
+                    <div class="bold">PROCEDIMIENTOS RR.HH.</div>
+                    <div style="font-size: 10px;">Sistema de Gestión de la Calidad ISO 9001:2015</div>
+                </td>
+                <td style="width: 30%; font-size: 9px;">
+                    <strong>CÓDIGO:</strong> —<br>
+                    <strong>REVISIÓN:</strong> 0<br>
+                    <strong>EMISIÓN:</strong> ${new Date(survey.createdAt).toLocaleDateString("es-CL")}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center;" class="bg-gris">
+                    <div class="bold uppercase">Encuesta Clima Laboral</div>
+                    <div style="font-size: 10px;">EXPEDIENTE DE AUDITORÍA INTERNA</div>
+                </td>
+            </tr>
+        </table>
 
-      <table>
-        <tr>
-          <td style="border: 1pt solid black; padding: 8px;"><strong>RUT:</strong> ${user.rut}</td>
-          <td style="border: 1pt solid black; padding: 8px;"><strong>CARGO:</strong> ${encuesta.cargo || "N/A"}</td>
-          <td style="border: 1pt solid black; padding: 8px;"><strong>TURNO:</strong> ${encuesta.turno || "N/A"}</td>
-        </tr>
-      </table>
+        <table class="tabla-iso" style="border-top: none;">
+            <tr>
+                <td><strong>RUT:</strong> ${user.rut}</td>
+                <td><strong>CARGO:</strong> ${survey.cargo || "N/A"}</td>
+                <td><strong>TURNO:</strong> ${survey.turno || "N/A"}</td>
+            </tr>
+        </table>
 
-      ${Object.entries(encuesta.respuestas || {})
-        .map(
-          ([seccion, preguntas]) => `
-        <div class="titulo-seccion uppercase">${seccion}</div>
-        ${Object.entries(preguntas)
+        ${Object.entries(survey.respuestas || {})
           .map(
-            ([index, respuesta]) => `
-          <div class="bloque-pregunta">
-            <div style="margin-bottom: 10px;"><strong>${parseInt(index) + 1}.-</strong> Pregunta de la encuesta</div>
-            <div>
-              ${[1, 2, 3, 4, 5]
-                .map(
-                  (n) => `
-                <span class="caja-voto ${respuesta == n ? "activa" : ""}">${n}</span>
-              `,
-                )
-                .join("")}
-            </div>
-          </div>
+            ([seccion, preguntas]) => `
+            <div class="seccion-titulo uppercase">${seccion}</div>
+            ${Object.entries(preguntas)
+              .map(
+                ([idx, val]) => `
+                <div class="pregunta-row">
+                    <div><strong>${parseInt(idx) + 1}.-</strong> Pregunta correspondiente a la sección</div>
+                    <div>
+                        ${[1, 2, 3, 4, 5]
+                          .map(
+                            (n) => `
+                            <span class="caja-voto ${val == n ? "activa" : ""}">${n}</span>
+                        `,
+                          )
+                          .join("")}
+                    </div>
+                </div>
+            `,
+              )
+              .join("")}
         `,
           )
           .join("")}
-      `,
-        )
-        .join("")}
 
-      <div class="titulo-seccion">RESPECTO A SUS EMOCIONES</div>
-      <table class="tabla-emociones">
-        <tr class="bg-gris">
-          <th>EMOCIÓN</th>
-          <th>ESTADO</th>
-        </tr>
-        ${Object.entries(encuesta.emociones || {})
-          .map(
-            ([emo, val]) => `
-          <tr>
-            <td class="bold">${emo.toUpperCase()}</td>
-            <td style="text-align: center;">${val ? '<span class="pildora">SÍ</span>' : "NO"}</td>
-          </tr>
-        `,
-          )
-          .join("")}
-      </table>
+        <div class="seccion-titulo">RESPECTO A SUS EMOCIONES</div>
+        <table class="tabla-final">
+            <thead>
+                <tr class="bg-gris">
+                    <th>EMOCIÓN</th>
+                    <th>ESTADO</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${Object.entries(survey.emociones || {})
+                  .map(
+                    ([emo, val]) => `
+                    <tr>
+                        <td class="bold uppercase">${emo}</td>
+                        <td style="text-align:center;">${val ? "SÍ" : "NO"}</td>
+                    </tr>
+                `,
+                  )
+                  .join("")}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 40px;">
+            <table class="tabla-final">
+                <tr class="bg-gris">
+                    <td colspan="2"><strong>RECOMENDACIÓN EMPRESA (1-7):</strong> ${survey.recomendacion || "—"}</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top;">
+                        <div class="bold" style="color:#1a4479">DESTACA:</div>
+                        <div>${survey.destacados || "Sin comentarios."}</div>
+                    </td>
+                    <td style="vertical-align: top;">
+                        <div class="bold" style="color:#1a4479">PUNTOS A MEJORAR:</div>
+                        <div>${survey.mejoras || "Sin comentarios."}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
     </body>
     </html>
     `;
 
-    // 3. GENERAR PDF CON PUPPETEER
+    // 3. GENERAR EL PDF CON PUPPETEER
     const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"], // Importante para servidores Linux
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
 
-    // Establecemos el contenido HTML
+    // Inyectar HTML
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
-    // Creamos el Buffer del PDF
+    // Crear Buffer del PDF
     const pdfBuffer = await page.pdf({
       format: "A4",
       landscape: true,
-      printBackground: true, // Crucial para colores y fondos
-      margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" },
+      printBackground: true,
+      margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
     });
 
     await browser.close();
 
-    // 4. Enviar el PDF al navegador
+    // 4. Enviar PDF al cliente
     res.contentType("application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -185,8 +205,8 @@ app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
     );
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generando PDF:", error);
-    res.status(500).send("Error al generar el documento");
+    console.error("Error al generar PDF:", error);
+    res.status(500).json({ error: "No se pudo generar el PDF" });
   }
 });
 
