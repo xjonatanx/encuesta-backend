@@ -6,14 +6,14 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 1. Hashear la contraseña (la que tenías en tu .env)
-  const passwordHash = await bcrypt.hash("pb_2026_seguro", 10);
+  const passwordHash = await bcrypt.hash("Escr7uFWf3", 10);
 
   // 2. Insertar o actualizar el administrador
   const admin = await prisma.admin.upsert({
     where: { email: "admin@pybingenieria.cl" }, // Cambia esto al email que desees
     update: {}, // Si ya existe, no hace nada
     create: {
-      email: "admin@pybingenieria.cl",
+      email: "williams@pybingenieria.cl",
       nombre: "Admin P&B",
       password: passwordHash,
     },
