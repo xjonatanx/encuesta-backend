@@ -4,12 +4,191 @@ const cors = require("cors");
 const verifyToken = require("./middleware/auth");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const puppeteer = require("puppeteer");
 
 const prisma = new PrismaClient();
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.get("/api/admin/generate-pdf/:rut", verifyToken, async (req, res) => {
+  const { rut } = req.params;
+
+  try {
+    // 1. Obtener datos de la DB (Igual que tu ruta de búsqueda)
+    const user = await prisma.user.findUnique({
+      where: { rut: rut },
+      include: { survey: true },
+    });
+
+    if (!user || !user.survey) {
+      return res.status(404).json({ message: "No se encontró la encuesta" });
+    }
+
+    const encuesta = user.survey;
+    const fechaEmision = new Date(encuesta.createdAt).toLocaleDateString(
+      "es-CL",
+    );
+
+    // 2. Definir el HTML y CSS (Adaptado para Puppeteer)
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: black; margin: 0; padding: 0; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .bold { font-weight: bold; }
+        .uppercase { text-transform: uppercase; }
+        .bg-gris { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
+
+        /* ISO Header */
+        .tabla-iso { border: 1.5pt solid black; margin-bottom: 20px; }
+        .tabla-iso td { border: 1pt solid black; padding: 8px; vertical-align: middle; }
+
+        /* Secciones */
+        .titulo-seccion {
+          border-bottom: 3pt solid #1a4479;
+          color: #1a4479;
+          font-size: 18px;
+          font-weight: bold;
+          padding: 10px 0;
+          margin-top: 30px;
+          width: 100%;
+        }
+
+        /* Preguntas */
+        .bloque-pregunta { padding: 15px 0; border-bottom: 0.5pt solid #eee; page-break-inside: avoid; }
+        .caja-voto {
+          display: inline-block;
+          border: 1.5pt solid #1a4479;
+          padding: 5px 15px;
+          margin-right: 10px;
+          border-radius: 4px;
+          font-weight: bold;
+          color: #1a4479;
+        }
+        .activa { background-color: #1a4479 !important; color: white !important; -webkit-print-color-adjust: exact; }
+
+        /* Emociones */
+        .tabla-emociones { border: 1.5pt solid black; margin-top: 20px; }
+        .tabla-emociones td, .tabla-emociones th { border: 1pt solid black; padding: 15px; }
+
+        .pildora { background: #d4edda !important; color: #155724 !important; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <table class="tabla-iso">
+        <tr>
+          <td rowspan="2" style="width: 15%; text-align: center;">
+            <img src="https://pybingenieriachile.cl/encuestas/images/logo_pb.png" style="max-height: 50px;" />
+          </td>
+          <td style="width: 55%; text-align: center;" class="bg-gris">
+            <div class="bold">PROCEDIMIENTOS RR.HH.</div>
+            <div style="font-size: 10px;">Sistema de Gestión de la Calidad ISO 9001:2015</div>
+          </td>
+          <td style="width: 30%; font-size: 9px;">
+            <strong>CÓDIGO:</strong> —<br>
+            <strong>REVISIÓN:</strong> 0<br>
+            <strong>EMISIÓN:</strong> ${fechaEmision}
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: center;" class="bg-gris">
+            <div class="bold uppercase">Encuesta Clima Laboral</div>
+            <div style="font-size: 10px;">EXPEDIENTE DE AUDITORÍA INTERNA</div>
+          </td>
+        </tr>
+      </table>
+
+      <table>
+        <tr>
+          <td style="border: 1pt solid black; padding: 8px;"><strong>RUT:</strong> ${user.rut}</td>
+          <td style="border: 1pt solid black; padding: 8px;"><strong>CARGO:</strong> ${encuesta.cargo || "N/A"}</td>
+          <td style="border: 1pt solid black; padding: 8px;"><strong>TURNO:</strong> ${encuesta.turno || "N/A"}</td>
+        </tr>
+      </table>
+
+      ${Object.entries(encuesta.respuestas || {})
+        .map(
+          ([seccion, preguntas]) => `
+        <div class="titulo-seccion uppercase">${seccion}</div>
+        ${Object.entries(preguntas)
+          .map(
+            ([index, respuesta]) => `
+          <div class="bloque-pregunta">
+            <div style="margin-bottom: 10px;"><strong>${parseInt(index) + 1}.-</strong> Pregunta de la encuesta</div>
+            <div>
+              ${[1, 2, 3, 4, 5]
+                .map(
+                  (n) => `
+                <span class="caja-voto ${respuesta == n ? "activa" : ""}">${n}</span>
+              `,
+                )
+                .join("")}
+            </div>
+          </div>
+        `,
+          )
+          .join("")}
+      `,
+        )
+        .join("")}
+
+      <div class="titulo-seccion">RESPECTO A SUS EMOCIONES</div>
+      <table class="tabla-emociones">
+        <tr class="bg-gris">
+          <th>EMOCIÓN</th>
+          <th>ESTADO</th>
+        </tr>
+        ${Object.entries(encuesta.emociones || {})
+          .map(
+            ([emo, val]) => `
+          <tr>
+            <td class="bold">${emo.toUpperCase()}</td>
+            <td style="text-align: center;">${val ? '<span class="pildora">SÍ</span>' : "NO"}</td>
+          </tr>
+        `,
+          )
+          .join("")}
+      </table>
+    </body>
+    </html>
+    `;
+
+    // 3. GENERAR PDF CON PUPPETEER
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"], // Importante para servidores Linux
+    });
+    const page = await browser.newPage();
+
+    // Establecemos el contenido HTML
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
+    // Creamos el Buffer del PDF
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      landscape: true,
+      printBackground: true, // Crucial para colores y fondos
+      margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" },
+    });
+
+    await browser.close();
+
+    // 4. Enviar el PDF al navegador
+    res.contentType("application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Expediente_${rut}.pdf`,
+    );
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generando PDF:", error);
+    res.status(500).send("Error al generar el documento");
+  }
+});
 
 app.get("/api/admin/survey-by-rut/:rut", verifyToken, async (req, res) => {
   const { rut } = req.params;
