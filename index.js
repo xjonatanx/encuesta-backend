@@ -446,11 +446,21 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
         });
       }
 
-      // Métrica 7: Jefe Directo
+      // --- NUEVO CÓDIGO HOMOLOGADO PARA EL GRÁFICO M7 ---
       if (e.jefeDirecto) {
-        if (!jefes[e.jefeDirecto]) jefes[e.jefeDirecto] = { suma: 0, count: 0 };
-        jefes[e.jefeDirecto].suma += rec;
-        jefes[e.jefeDirecto].count++;
+        // 1. Limpiamos el nombre: quitamos espacios, pasamos a MAYÚSCULAS y eliminamos tildes
+        let jefeLimpio = e.jefeDirecto
+          .trim()
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+
+        // 2. Agrupamos y sumamos usando el nombre ya unificado
+        if (!jefes[jefeLimpio]) {
+          jefes[jefeLimpio] = { suma: 0, count: 0 };
+        }
+        jefes[jefeLimpio].suma += rec;
+        jefes[jefeLimpio].count++;
       }
 
       // Métrica 8: Alertas
