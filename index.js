@@ -392,12 +392,12 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
 
     // --- TURNOS ACTUALIZADOS ---
     const turnosData = {
-      "G1 DIA": { suma: 0, count: 0, emociones: {} },
-      "G2 NOCHE": { suma: 0, count: 0, emociones: {} },
-      "G3 DIA": { suma: 0, count: 0, emociones: {} },
-      "G4 NOCHE": { suma: 0, count: 0, emociones: {} },
-      "TURNO 5 X 2": { suma: 0, count: 0, emociones: {} }, // Nuevo
-      "TURNO 4 X 3": { suma: 0, count: 0, emociones: {} }, // Nuevo
+      G1: { suma: 0, count: 0, emociones: {} },
+      G2: { suma: 0, count: 0, emociones: {} },
+      G3: { suma: 0, count: 0, emociones: {} },
+      G4: { suma: 0, count: 0, emociones: {} },
+      "TURNO 5 X 2": { suma: 0, count: 0, emociones: {} },
+      "TURNO 4 X 3": { suma: 0, count: 0, emociones: {} },
     };
 
     const distribucion = {
@@ -477,11 +477,12 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
     // Cálculo de promedios para Métrica 4 (Brecha Día vs Noche)
     // Nota: Los nuevos turnos no se incluyen aquí a menos que definas si son día o noche.
     const promDia =
-      (turnosData["G1 DIA"].suma + turnosData["G3 DIA"].suma) /
-      (turnosData["G1 DIA"].count + turnosData["G3 DIA"].count || 1);
+      (turnosData["G1"].suma + turnosData["G3"].suma) /
+      (turnosData["G1"].count + turnosData["G3"].count || 1);
+
     const promNoche =
-      (turnosData["G2 NOCHE"].suma + turnosData["G4 NOCHE"].suma) /
-      (turnosData["G2 NOCHE"].count + turnosData["G4 NOCHE"].count || 1);
+      (turnosData["G2"].suma + turnosData["G4"].suma) /
+      (turnosData["G2"].count + turnosData["G4"].count || 1);
 
     // GRAFICOS GLOBALES
     // Calculamos los puntos totales por dimensión para las barras de la guía
