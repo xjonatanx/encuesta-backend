@@ -477,6 +477,7 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
     // Cálculo de promedios para Métrica 4 (Brecha Día vs Noche)
     // Nota: Los nuevos turnos no se incluyen aquí a menos que definas si son día o noche.
     // --- NUEVO CÁLCULO M4: COMPARATIVA (G1 + G2) VS (G3 + G4) ---
+    // 1. Calculamos los promedios crudos
     const promG1G2 =
       (turnosData["G1"].suma + turnosData["G2"].suma) /
       (turnosData["G1"].count + turnosData["G2"].count || 1);
@@ -484,6 +485,10 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
     const promG3G4 =
       (turnosData["G3"].suma + turnosData["G4"].suma) /
       (turnosData["G3"].count + turnosData["G4"].count || 1);
+
+    // 2. 💡 NUEVO: Forzamos el redondeo a 1 decimal ANTES de restar
+    const g1g2Redondeado = parseFloat(promG1G2.toFixed(1));
+    const g3g4Redondeado = parseFloat(promG3G4.toFixed(1));
 
     // GRAFICOS GLOBALES
     // Calculamos los puntos totales por dimensión para las barras de la guía
@@ -525,9 +530,9 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
         radarCounts[d] > 0 ? (resumenRadar[d] / radarCounts[d]).toFixed(2) : 0,
       ),
       brecha: {
-        dia: promG1G2.toFixed(1), // Lo mapeamos a 'dia' para que el Front lo reciba de inmediato
-        noche: promG3G4.toFixed(1), // Lo mapeamos a 'noche'
-        diff: Math.abs(promG1G2 - promG3G4).toFixed(1),
+        dia: g1g2Redondeado,
+        noche: g3g4Redondeado,
+        diff: Math.abs(g1g2Redondeado - g3g4Redondeado).toFixed(1), // Ahora sí dará 0.2
       },
       statsTurnos: Object.keys(turnosData).map((t) => ({
         nombre: t,
