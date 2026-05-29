@@ -9,6 +9,10 @@ const puppeteer = require("puppeteer");
 const prisma = new PrismaClient();
 const app = express();
 
+// 🔒 CONTROL DE ACCESO GLOBAL:
+// true = Encuesta cerrada / false = Encuesta abierta
+const ENCUESTA_BLOQUEADA = true;
+
 app.use(cors());
 app.use(express.json());
 
@@ -637,6 +641,13 @@ app.post("/api/auth/login", async (req, res) => {
   const JWT_SECRET = process.env.JWT_SECRET;
 
   try {
+    // 💡 INTERCEPCIÓN EN CASO DE BLOQUEO
+    if (ENCUESTA_BLOQUEADA) {
+      return res.status(403).json({
+        message:
+          "El proceso de encuesta ha finalizado. Ya no se aceptan más respuestas.",
+      });
+    }
     let user = await prisma.user.findUnique({
       where: { rut },
       include: { survey: true },
@@ -691,6 +702,14 @@ app.patch("/api/survey/save", verifyToken, async (req, res) => {
   // Nota: En el frontend asegúrate de enviar 'data' o 'datos'.
   // Aquí usamos 'data' para ser consistentes con tu frontend anterior.
   const { userId, data, status, lastStep } = req.body;
+
+  // 💡 INTERCEPCIÓN EN CASO DE BLOQUEO
+  if (ENCUESTA_BLOQUEADA) {
+    return res.status(403).json({
+      error:
+        "La encuesta se encuentra cerrada por la administración. No se pueden guardar cambios.",
+    });
+  }
 
   console.log("--- PETICIÓN DE GUARDADO ---");
   console.log("ID Usuario:", userId);
