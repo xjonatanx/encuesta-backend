@@ -441,13 +441,22 @@ app.get("/api/admin/stats-full", verifyToken, async (req, res) => {
       if (turnosData[e.turno]) {
         turnosData[e.turno].suma += rec;
         turnosData[e.turno].count++;
+
+        // 1. Mantenemos el conteo individual por emoción para las barras del gráfico M5
         Object.entries(e.emociones || {}).forEach(([emo, val]) => {
           if (val === true) {
             turnosData[e.turno].emociones[emo] =
               (turnosData[e.turno].emociones[emo] || 0) + 1;
-            if (emo === "Estrés" || emo === "Frustración") conteoEstres++;
           }
         });
+
+        // 2. NUEVA CORRECCIÓN: Contar personas únicas afectadas (Evita el doble conteo)
+        if (
+          e.emociones?.["Estrés"] === true ||
+          e.emociones?.["Frustración"] === true
+        ) {
+          conteoEstres++;
+        }
       }
 
       // --- NUEVO CÓDIGO HOMOLOGADO PARA EL GRÁFICO M7 ---
